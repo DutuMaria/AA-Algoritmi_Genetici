@@ -90,11 +90,10 @@ int generareValIntDinIntervalTranslatat() {
     limSupTranslatata -= limInfTranslatata;
     limInfTranslatata -= limInfTranslatata;
 
-    //cout << limInfTranslatata << " " << limSupTranslatata << "\n";
-
     std::random_device rd;
     std::mt19937 mt(rd());
 
+    //trebuie minim pentru ca limSupTranslatata poate sa fie mai mare decat cel mai numar pe care il putem scrie pe lungimeCromozom biti
     limSupTranslatata = min(limSupTranslatata, (int)pow(2, lungimeCromozom)-1);
     std::uniform_int_distribution<> dist(limInfTranslatata, limSupTranslatata);
 
@@ -105,7 +104,6 @@ int generareValIntDinIntervalTranslatat() {
 pair<int, double> generareValoariIndivid() {
     int valIntRandom = generareValIntDinIntervalTranslatat();
     int valTranslatie = calculareValTranslatie();
-    //
     double valoareIndivid = (double)(valIntRandom + limitaInferioara * valTranslatie) / valTranslatie;
 
     return {valIntRandom,valoareIndivid};
@@ -128,8 +126,8 @@ double calculareFitnessTotal(const vector<Individ> &populatie){
     return fitnessTotal;
 }
 
-// decimal to binary
-std::vector<int> calculareCromozom(const int val) {
+// calculare cromozom
+std::vector<int> decimalToBinary(const int val) {
     int valIntRandom = val;
     vector<int> cromozomIndivid;
     int cnt = 0;
@@ -157,7 +155,7 @@ vector<Individ> generarePrimaPopulatie(){
         int valInt = valoariIndivid.first;
         double valDouble = valoariIndivid.second;
         double fitness = calculareFitnessIndivid(valDouble);
-        vector<int> cromozom = calculareCromozom(valInt);
+        vector<int> cromozom = decimalToBinary(valInt);
         Individ individ = Individ(valInt, valDouble, fitness, cromozom);
         populatie.push_back(individ);
     }
@@ -192,6 +190,7 @@ vector<double> calculareProbabilitatiSelectie(const vector<Individ> &populatie){
     return probabilitatiSelectie;
 }
 
+// suma cumulativa
 vector<double> calculareIntervaleProbSelectie(const vector<double>& probabilitatiSelectie){
     vector<double> intervale;
     double sum = 0;
@@ -204,6 +203,7 @@ vector<double> calculareIntervaleProbSelectie(const vector<double>& probabilitat
     return intervale;
 }
 
+// cautare binara
 int cautareInterval(const vector<double> &intervaleProbSel, const double &nr, int stanga, int dreapta){
     if (nr <= intervaleProbSel[stanga]){
         return stanga;
@@ -226,6 +226,13 @@ int cautareInterval(const vector<double> &intervaleProbSel, const double &nr, in
     }
 }
 
+/*
+ * => Procesul de selectie (putem alege un individ de mai multe ori)
+ *      - selectam doar dimensiunePopulatie-1 indivizi pentru ca adaug la final elitistul
+ *      - generez un nunar intre [0, nrIntervale]  unde nrIntervale = intervalePobSel.size() - 1
+ *      - caut pozitia numarului in interval
+ *      - selectez individul de pe pozitia  poz-1 (exemplu pt obs: ca individul 1 e pe pozitia 0!!)
+ */
 vector<Individ> selecteazaIndivizi(const int &etapa, const vector<Individ> &populatie, const vector<double> &intervalePobSel){
     int indiviziDeSelectat = dimensiunePopulatie - 1;
     vector<Individ> indiviziSelectati;
@@ -240,7 +247,7 @@ vector<Individ> selecteazaIndivizi(const int &etapa, const vector<Individ> &popu
         if (etapa == 0){
             fout << "\tu= " << nr << " selectam cromozomul " << poz << "\n";
         }
-        indiviziSelectati.push_back(populatie[poz - 1]); // individul 1 e pe pozitia 0!!
+        indiviziSelectati.push_back(populatie[poz - 1]); // exemplu: individul 1 e pe pozitia 0!!
         indiviziDeSelectat--;
     }
 
@@ -253,7 +260,13 @@ void afisareCromozom(const vector<int> &cromozom){
     }
 }
 
-vector<int> selecteazaIndiviziIncrucisare(const int &etapa, const vector<Individ> &indiviziSelectati){
+/*
+ * Functia returneaza un vector cu pozitiile indivizilor care trebuie recombinati
+ *      - generez un numar aleator pentru fiecare individ
+ *      - daca numarul generat < probabilitatea de recombinare
+ *          - adaug pozitia individului la vectorul cu pozitiile indivizilor care trebuie recombinati
+ */
+vector<int> selecteazaIndiviziDeIncrucisat(const int &etapa, const vector<Individ> &indiviziSelectati){
     vector<int> indiviziSelectatiIncrucisare;
     std::random_device rd;
     std::mt19937 mt(rd());
@@ -302,6 +315,11 @@ double intToDouble(const int &valInt){
     return valDouble;
 }
 
+
+/*
+ * Procesul de recombinare
+ *  => returnez un vector de perechi (pozitieIndivid, Individ) cu indivizii rezultati in urma recombinarii
+ */
 vector<pair<int,Individ>> recombinare(const int &etapa, const vector<Individ> & indiviziSelectati, vector<int> &indiviziDeIncrucisat){
     int nrIndiviziDeIncrucisat = indiviziDeIncrucisat.size();
     vector<pair<int, Individ>> indiviziRecombinati;
@@ -368,7 +386,10 @@ vector<pair<int,Individ>> recombinare(const int &etapa, const vector<Individ> & 
     return indiviziRecombinati;
 }
 
-//mutatie => varianta 2
+/*
+ * Procesul de mutatie
+ *  => returnez un vector de perechi (pozitieIndivid, Individ) cu indivizii rezultati in urma mutatiei
+ */
 vector<pair<int, Individ>> mutatie(const vector<Individ> &populatieRecombinata){
     vector<pair<int, Individ>> indiviziModificati;
     std::random_device rd;
@@ -504,7 +525,7 @@ int main() {
         vector<Individ> indiviziSelectati = selecteazaIndivizi(i, populatie, intervaleProbSelectie);
         if (i == 0) { afisareDupaSelectie(indiviziSelectati); }
 
-        vector<int> indiviziDeIncrucisat = selecteazaIndiviziIncrucisare(i, indiviziSelectati);
+        vector<int> indiviziDeIncrucisat = selecteazaIndiviziDeIncrucisat(i, indiviziSelectati);
         vector<pair<int, Individ>> indiviziRecombinati = recombinare(i, indiviziSelectati, indiviziDeIncrucisat);
         vector<Individ> populatieDupaRecombinare = indiviziSelectati;
 
@@ -518,7 +539,6 @@ int main() {
 
         vector<pair<int, Individ>> indiviziModificatiDupaMutatie = mutatie(populatieDupaRecombinare);
         if (i == 0) { afisareCromozomiModifDupaMutatie(indiviziModificatiDupaMutatie); }
-
         vector<Individ> populatieDupaMutatie = populatieDupaRecombinare;
 
         for (int j = 0; j < indiviziModificatiDupaMutatie.size(); j++){
